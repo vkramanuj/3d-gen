@@ -3,15 +3,15 @@ import os
 from scipy import ndimage, misc
 import sys
 from phog_features.phog import PHogFeatures
+from CLPatchMatch.main import CLPatchMatch
+import operator
 
 VERBOSE = False
 
 DATA_DIR_PATH = '../data'
 
 phog = PHogFeatures()
-
-trainingImages = {}
-inputImage = None
+patchmatch = CLPatchMatch()
 
 class Image(object):
 
@@ -34,12 +34,11 @@ class Image(object):
         phogData = phog.get_features(rgbPath)
         return phogData
 
-    def __init__(self, imageId):
+    def __init__(self, dirPath, imageId):
         self.id = imageId
-        self.rgb = self.load_rgb(DATA_DIR_PATH, imageId)
-        self.phog = self.load_phog(DATA_DIR_PATH, imageId)
-        self.depth = self.load_depth(DATA_DIR_PATH, imageId)
-        print self
+        self.rgb = self.load_rgb(dirPath, imageId)
+        self.phog = self.load_phog(dirPath, imageId)
+        self.depth = self.load_depth(dirPath, imageId)
 
     def __str__(self):
         string = "IMAGE[id:%s, rgb:%s, phog:%s, depth:%s]" % (self.id, self.rgb, self.phog, self.depth)
@@ -48,30 +47,38 @@ class Image(object):
     def __repr__(self):
         return str(self)
 
-def retreive_k_training_images(k):
-    # store the phogs, id -> phog
-    # id should be same as files, id -> file
-    dist = numpy.sum(numpy.subtract())
+def retreive_k_training_images(inputImage, trainingImages, k):
+    inputPhog = phog.get_features(inputPath)
+    dists = []
+    for _, trainingImage in trainingImages.items():
+        dist = np.sum(np.power(np.subtract(inputPhog, trainingImage.phog), 2))
+        dists.append((trainingImage, dist))
+    sortedDists = sorted(dists, key=operator.itemgetter(1))
+    kClosestImages = [dist[0] for dist in sortedDists[:k]]
+    return kClosestImages
 
 def get_image_id(fileName):
     imageId = fileName.split('.')[0]
     imageId = imageId[:-2] # removes _c, _d
     return imageId
 
-def load_training_images():
-    fileNames = os.listdir(DATA_DIR_PATH)
-    imageIds = {get_image_id(fileName) for fileName in fileNames}
-    images = {imageId:Image(imageId) for imageId in imageIds}
+def load_training_images(dirPath):
+    fileNames = os.listdir(dirPath)
+    imageIds = {get_image_id(fileName) for fileName in fileNames[::3]}
+    images = {imageId:Image(dirPath, imageId) for imageId in imageIds}
     return images
 
-def main(image):
-    trainingImages = load_training_images()
-    inputImage = image
+def main(inputImage):
+    trainingImages = load_training_images(DATA_DIR_PATH)
+    kImages = retreive_k_training_images(inputImage, trainingImages, 7)
+    print [image.id for image in kImages]
+    # rgbs = [trainingImages['001_1'].rgb, trainingImages['001_2'].rgb]
+    # print patchmatch.match(rgbs, Demo=True)
     # print images
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print "Usage: analogies.py [file/to/analogize]"
     else:
-        main(sys.argv[1])
-    main()
+        inputPath = sys.argv[1]
+        main(inputPath)
