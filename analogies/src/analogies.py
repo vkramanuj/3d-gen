@@ -36,6 +36,8 @@ class Image(object):
 
     def __init__(self, dirPath, imageId):
         self.id = imageId
+        self.rgbPath = os.path.abspath(os.path.join(dirPath, imageId + '_c.bmp'))
+        self.depthPath = os.path.abspath(os.path.join(dirPath, imageId + '_d.dat'))
         self.rgb = self.load_rgb(dirPath, imageId)
         self.phog = self.load_phog(dirPath, imageId)
         self.depth = self.load_depth(dirPath, imageId)
@@ -64,7 +66,7 @@ def get_image_id(fileName):
 
 def load_training_images(dirPath):
     fileNames = os.listdir(dirPath)
-    imageIds = {get_image_id(fileName) for fileName in fileNames[::3]}
+    imageIds = {get_image_id(fileName) for fileName in fileNames[:4]}
     images = {imageId:Image(dirPath, imageId) for imageId in imageIds}
     return images
 
@@ -72,9 +74,8 @@ def main(inputImage):
     trainingImages = load_training_images(DATA_DIR_PATH)
     kImages = retreive_k_training_images(inputImage, trainingImages, 7)
     print [image.id for image in kImages]
-    # rgbs = [trainingImages['001_1'].rgb, trainingImages['001_2'].rgb]
-    # print patchmatch.match(rgbs, Demo=True)
-    # print images
+    files = ['../data/001_1_c.bmp', '../data/001_2_c.bmp']
+    print patchmatch.match(files)
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
