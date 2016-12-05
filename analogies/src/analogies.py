@@ -8,7 +8,7 @@ import operator
 
 VERBOSE = False
 
-DATA_DIR_PATH = '../data'
+DATA_DIR_PATH = '../data_2'
 
 phog = PHogFeatures()
 patchmatch = CLPatchMatch()
@@ -16,28 +16,29 @@ patchmatch = CLPatchMatch()
 class Image(object):
 
     def load_depth(self, dirPath, imageId):
-        depthFileName = imageId + '_d.dat'
+        depthFileName = imageId + '_depthcrop.png'
         depthPath = os.path.join(dirPath, depthFileName)
-        strDepthData = np.array(open(depthPath).read().split())
-        depthData = strDepthData.astype(np.int)
+        depthData = misc.imread(depthPath, mode='L')
         return depthData
 
     def load_rgb(self, dirPath, imageId):
-        rgbFileName = imageId + '_c.bmp'
+        rgbFileName = imageId + '_crop.png'
         rgbPath = os.path.join(dirPath, rgbFileName)
         rgbData = misc.imread(rgbPath, mode='RGB')
         return rgbData
 
     def load_phog(self, dirPath, imageId):
-        rgbFileName = imageId + '_c.bmp'
+        rgbFileName = imageId + '_crop.png'
         rgbPath = os.path.join(dirPath, rgbFileName)
         phogData = phog.get_features(rgbPath)
-        return phogData
+        startIndex = (len(phogData) - 680)/2
+        endIndex = startIndex + 680
+        return phogData[startIndex:endIndex]
 
     def __init__(self, dirPath, imageId):
         self.id = imageId
-        self.rgbPath = os.path.abspath(os.path.join(dirPath, imageId + '_c.bmp'))
-        self.depthPath = os.path.abspath(os.path.join(dirPath, imageId + '_d.dat'))
+        self.rgbPath = os.path.abspath(os.path.join(dirPath, imageId + '_crop.png'))
+        self.depthPath = os.path.abspath(os.path.join(dirPath, imageId + '_depthcrop.png'))
         self.rgb = self.load_rgb(dirPath, imageId)
         self.phog = self.load_phog(dirPath, imageId)
         self.depth = self.load_depth(dirPath, imageId)
@@ -62,7 +63,8 @@ def retreive_k_training_images(inputImage, trainingImages, k):
 
 def get_image_id(fileName):
     imageId = fileName.split('.')[0]
-    imageId = imageId[:-2] # removes _c, _d
+    lastUnderscoreIndex = imageId.rfind('_')
+    imageId = imageId[:lastUnderscoreIndex]
     return imageId
 
 def load_training_images(dirPath):
@@ -74,12 +76,13 @@ def load_training_images(dirPath):
 def main(inputPath):
     trainingImages = load_training_images(DATA_DIR_PATH)
     kImages = retreive_k_training_images(inputPath, trainingImages, 7)
+    print [image.id for image in kImages]
     for image in kImages:
-        image.patchmatch = patchmatch.match(inputPath, image.rgbPath)
+        image.patchmatch = patchmatch.match([inputPath, image.rgbPath])
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print "Usage: analogies.py [file/to/analogize]"
     else:
-        inputPath = sys.argv[1]
+        inputPath = os.path.abspath(sys.argv[1])
         main(inputPath)
