@@ -41,6 +41,7 @@ class Image(object):
         self.rgb = self.load_rgb(dirPath, imageId)
         self.phog = self.load_phog(dirPath, imageId)
         self.depth = self.load_depth(dirPath, imageId)
+        self.depthGradient = np.gradient(self.depth)
 
     def __str__(self):
         string = "IMAGE[id:%s, rgb:%s, phog:%s, depth:%s]" % (self.id, self.rgb, self.phog, self.depth)
@@ -66,16 +67,15 @@ def get_image_id(fileName):
 
 def load_training_images(dirPath):
     fileNames = os.listdir(dirPath)
-    imageIds = {get_image_id(fileName) for fileName in fileNames[:4]}
+    imageIds = {get_image_id(fileName) for fileName in fileNames}
     images = {imageId:Image(dirPath, imageId) for imageId in imageIds}
     return images
 
-def main(inputImage):
+def main(inputPath):
     trainingImages = load_training_images(DATA_DIR_PATH)
-    kImages = retreive_k_training_images(inputImage, trainingImages, 7)
-    print [image.id for image in kImages]
-    files = ['../data/001_1_c.bmp', '../data/001_2_c.bmp']
-    print patchmatch.match(files)
+    kImages = retreive_k_training_images(inputPath, trainingImages, 7)
+    for image in kImages:
+        image.patchmatch = patchmatch.match(inputPath, image.rgbPath)
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
