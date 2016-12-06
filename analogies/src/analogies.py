@@ -2,9 +2,12 @@ import numpy as np
 import os
 from scipy import ndimage, misc
 import sys
+import time
 from phog_features.phog import PHogFeatures
 from CLPatchMatch.main import CLPatchMatch
 import operator
+import matplotlib.pyplot as plt
+
 
 VERBOSE = False
 
@@ -18,7 +21,7 @@ class Image(object):
     def load_depth(self, dirPath, imageId):
         depthFileName = imageId + '_depthcrop.png'
         depthPath = os.path.join(dirPath, depthFileName)
-        depthData = misc.imread(depthPath, mode='L')
+        depthData = misc.imread(depthPath, mode='F')
         return depthData
 
     def load_rgb(self, dirPath, imageId):
@@ -73,12 +76,54 @@ def load_training_images(dirPath):
     images = {imageId:Image(dirPath, imageId) for imageId in imageIds}
     return images
 
+def infer_depth_gradient(pixelRGB, pixelRow, pixelCol, kImages):
+    dists = []
+    depthGradientSamples = {}
+    for k, image in enumerate(kImages):
+        # print image.patchmatch.shape, pixelRow, pixelCol
+        effectiveRow = np.clip(pixelRow, 0, len(image.patchmatch)-1)
+        effectiveCol = np.clip(pixelCol, 0, len(image.patchmatch[0])-1)
+        matchCoords = image.patchmatch[effectiveRow][effectiveCol]
+        matchRow, matchCol = int(matchCoords[1]), int(matchCoords[0])
+        # print "offset " + str(offset)
+        # print image.depthGradient
+        print image.id, image.patchmatch.shape, pixelRow, pixelCol, effectiveRow, effectiveCol, matchRow, matchCol, image.depthGradient[0].shape
+        depthGradientSamples[k] = (image.depthGradient[0][matchRow][matchCol], image.depthGradient[1][matchRow][matchCol])
+        rgbSample = image.rgb[matchRow][matchCol]
+        dist = np.sum((pixelRGB - rgbSample) * (pixelRGB - rgbSample))
+        dists.append(dist)
+    dists = np.array(dists)
+    distSum = np.sum(dists)
+    kWeights = 1.0 - np.divide(dists, distSum)
+    weightSum = np.sum(kWeights)*0.5
+    weightAccumulator = 0
+    kStar = 0
+    for k, weight in enumerate(kWeights):
+        weightAccumulator += weight
+        if weightAccumulator >= weightSum:
+            kStar = k
+            break
+    return depthGradientSamples[kStar]
+
 def main(inputPath):
     trainingImages = load_training_images(DATA_DIR_PATH)
     kImages = retreive_k_training_images(inputPath, trainingImages, 7)
     print [image.id for image in kImages]
+    inputRGB = misc.imread(inputPath, mode='RGB')
     for image in kImages:
-        image.patchmatch = patchmatch.match([inputPath, image.rgbPath])
+        image.patchmatch = patchmatch.match([image.rgbPath, inputPath])
+        # plt.figure()
+        # plt.imshow(image.patchmatch)
+        # plt.show()
+        # print image.patchmatch
+    inputDepthGradient = np.zeros(inputRGB.shape)
+    for row in range(len(inputRGB)):
+        for col, pixel in enumerate(inputRGB[row]):
+            inputDepthGradient[row][col][0], inputDepthGradient[row][col][1] = infer_depth_gradient(pixel, row, col, kImages)
+    print inputDepthGradient.shape
+    plt.figure()
+    plt.imshow(inputDepthGradient)
+    plt.show()
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

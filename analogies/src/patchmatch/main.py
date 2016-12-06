@@ -41,17 +41,17 @@ class CLPatchMatch:
                     "init","randomfill")};
         #show opencl compiler errors
         os.environ["PYOPENCL_COMPILER_OUTPUT"]="1";
-        
+
         t=getTime();
 
         self.ctx = cl.create_some_context(False)
         self.queue = cl.CommandQueue(self.ctx)
-        
+
         self.times["init"]+=getTime()-t;
-        
+
     def loadProgram(self, filename):
         t=getTime();
-        
+
         f = open(filename, 'r')
         fstr = "".join(f.readlines())
 
@@ -65,6 +65,7 @@ class CLPatchMatch:
         '''
         t=getTime();
         self.img = [skimage.img_as_float(skimage.io.imread(files[i])) for i in (0,1)]
+        print self.img[0].shape, self.img[1].shape
         self.loadProgram("patchmatch.c")
         self.times["init"]+=getTime()-t;
 
@@ -73,9 +74,9 @@ class CLPatchMatch:
         mf= cl.mem_flags
         self.inputBuf=[cl.Buffer(self.ctx,mf.READ_ONLY | mf.COPY_HOST_PTR,hostbuf=self.img[i]) for i in [0,1]];
         self.outputBuf=cl.Buffer(self.ctx,mf.WRITE_ONLY | mf.COPY_HOST_PTR ,hostbuf=self.nff)
-        
-        
-        self.program.randomfill(self.queue, self.effectiveSize, None, 
+
+
+        self.program.randomfill(self.queue, self.effectiveSize, None,
                                   numpy.int32(self.patchSize[0]), #patchHeight
                                   numpy.int32(self.patchSize[1]), #patchWidth
                                   numpy.int32(self.size[0]), #height
@@ -97,9 +98,9 @@ class CLPatchMatch:
         mf= cl.mem_flags
         self.inputBuf=[cl.Buffer(self.ctx,mf.READ_ONLY | mf.COPY_HOST_PTR,hostbuf=self.img[i]) for i in [0,1]];
         self.outputBuf=cl.Buffer(self.ctx,mf.READ_WRITE | mf.COPY_HOST_PTR ,hostbuf=self.nff)
-        
-        
-        self.program.propagate(self.queue, self.effectiveSize, None, 
+
+
+        self.program.propagate(self.queue, self.effectiveSize, None,
                                   numpy.int32(self.patchSize[0]), #patchHeight
                                   numpy.int32(self.patchSize[1]), #patchWidth
                                   numpy.int32(self.size[0]), #height
@@ -124,7 +125,7 @@ class CLPatchMatch:
         for i in range(0,height+1):
             img[y+i][x]=color
             img[y+i][x+width]=color;
-        
+
     def show(self,nffs=True):
         '''
         shows times and images
@@ -138,19 +139,19 @@ class CLPatchMatch:
 
         for i in self.times.keys():
             print i,":", (self.times[i].seconds*1000+self.times[i].microseconds/1000)/1000.0,"seconds"
-        
+
         if nffs:
             for i in range(0,3):
                 pylab.imshow(self.nff[:,:,i])
                 pylab.show();
         f=pylab.figure()
-        f.add_subplot(1,2,0);    
+        f.add_subplot(1,2,0);
         pylab.imshow(self.img[0],cmap=matplotlib.cm.Greys_r);
         f.add_subplot(1,2,1);
         pylab.imshow(self.img[1],cmap=matplotlib.cm.Greys_r);
         pylab.title("Patch Match (by AbiusX)")
         pylab.show();
-    
+
     def D(self,y1,x1,y2,x2):
         '''
         compute difference of two patches
@@ -164,7 +165,7 @@ class CLPatchMatch:
         '''
         self.loadImages(files);
 
-        
+
         self.size=self.img[0].shape;
         self.patchSize=patchSize;
         self.effectiveSize=[self.size[i]-patchSize[i] for i in (0,1)];
@@ -178,7 +179,7 @@ class CLPatchMatch:
                 print "iteration",self.iteration
                 print "mean block difference:", self.nff[:,:,2].mean();
             self.execute();
-        
+
         if (Demo): self.show();
         return self.nff;
 
