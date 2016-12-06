@@ -22,12 +22,14 @@ class Image(object):
         depthFileName = imageId + '_depthcrop.png'
         depthPath = os.path.join(dirPath, depthFileName)
         depthData = misc.imread(depthPath, mode='F')
+        depthData = misc.imresize(depthData, self.targetSize)
         return depthData
 
     def load_rgb(self, dirPath, imageId):
         rgbFileName = imageId + '_crop.png'
         rgbPath = os.path.join(dirPath, rgbFileName)
         rgbData = misc.imread(rgbPath, mode='RGB')
+        rgbData = misc.imresize(rgbData, self.targetSize)
         return rgbData
 
     def load_phog(self, dirPath, imageId):
@@ -38,7 +40,8 @@ class Image(object):
         endIndex = startIndex + 680
         return phogData[startIndex:endIndex]
 
-    def __init__(self, dirPath, imageId):
+    def __init__(self, targetSize, dirPath, imageId):
+        self.targetSize = targetSize
         self.id = imageId
         self.rgbPath = os.path.abspath(os.path.join(dirPath, imageId + '_crop.png'))
         self.depthPath = os.path.abspath(os.path.join(dirPath, imageId + '_depthcrop.png'))
@@ -70,10 +73,10 @@ def get_image_id(fileName):
     imageId = imageId[:lastUnderscoreIndex]
     return imageId
 
-def load_training_images(dirPath):
+def load_training_images(targetSize, dirPath):
     fileNames = os.listdir(dirPath)
     imageIds = {get_image_id(fileName) for fileName in fileNames}
-    images = {imageId:Image(dirPath, imageId) for imageId in imageIds}
+    images = {imageId:Image(targetSize, dirPath, imageId) for imageId in imageIds}
     return images
 
 def infer_depth_gradient(pixelRGB, pixelRow, pixelCol, kImages):
@@ -85,12 +88,9 @@ def infer_depth_gradient(pixelRGB, pixelRow, pixelCol, kImages):
         effectiveCol = np.clip(pixelCol, 0, len(image.patchmatch[0])-1)
         matchCoords = image.patchmatch[effectiveRow][effectiveCol]
         matchRow, matchCol = int(matchCoords[1]), int(matchCoords[0])
-        # print "offset " + str(offset)
-        # print image.depthGradient
-        print image.id, image.patchmatch.shape, pixelRow, pixelCol, effectiveRow, effectiveCol, matchRow, matchCol, image.depthGradient[0].shape
         depthGradientSamples[k] = (image.depthGradient[0][matchRow][matchCol], image.depthGradient[1][matchRow][matchCol])
         rgbSample = image.rgb[matchRow][matchCol]
-        dist = np.sum((pixelRGB - rgbSample) * (pixelRGB - rgbSample))
+        dist = float(np.sum((pixelRGB - rgbSample) * (pixelRGB - rgbSample)))
         dists.append(dist)
     dists = np.array(dists)
     distSum = np.sum(dists)
@@ -103,15 +103,16 @@ def infer_depth_gradient(pixelRGB, pixelRow, pixelCol, kImages):
         if weightAccumulator >= weightSum:
             kStar = k
             break
+    print kWeights
     return depthGradientSamples[kStar]
 
 def main(inputPath):
-    trainingImages = load_training_images(DATA_DIR_PATH)
+    inputRGB = misc.imread(inputPath, mode='RGB')
+    trainingImages = load_training_images(inputRGB.shape[0:2], DATA_DIR_PATH)
     kImages = retreive_k_training_images(inputPath, trainingImages, 7)
     print [image.id for image in kImages]
-    inputRGB = misc.imread(inputPath, mode='RGB')
     for image in kImages:
-        image.patchmatch = patchmatch.match([image.rgbPath, inputPath])
+        image.patchmatch = patchmatch.match([inputPath, image.rgbPath])
         # plt.figure()
         # plt.imshow(image.patchmatch)
         # plt.show()
