@@ -61,7 +61,7 @@ class PHogFeatures():
 
             index = GradientX == 0.
             index = index.astype(int)  # Convert boolean array to an int array
-            GradientX[np.where(index > 0)] = np.power(10, -5)
+            GradientX[np.where(index > 0)] = 0.00001
             YX = GradientY / GradientX
 
             if angle == 180.:
@@ -153,8 +153,8 @@ class PHogFeatures():
                 while yy + y <= bh.shape[0]:
                     bh_cella = np.array([])
                     bv_cella = np.array([])
-                    bh_cella = bh[int(yy + 1.) - 1:yy + y, int(xx + 1.) - 1:xx + x]
-                    bv_cella = bv[int(yy + 1.) - 1:yy + y, int(xx + 1.) - 1:xx + x]
+                    bh_cella = bh[int(yy + 1.) - 1:int(yy) + int(y), int(xx + 1) - 1:int(xx) + int(x)]
+                    bv_cella = bv[int(yy + 1.) - 1:int(yy) + int(y), int(xx + 1) - 1:int(xx) + int(x)]
 
                     for b in np.arange(1, bin + 1):
                         ind = bh_cella == b
