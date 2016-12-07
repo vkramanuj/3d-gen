@@ -6,6 +6,7 @@ import sys
 import time
 from phog_features.phog import PHogFeatures
 from patchmatch.main import CLPatchMatch
+from poisson.poisson import fourierSolve
 import operator
 import matplotlib.pyplot as plt
 
@@ -13,7 +14,7 @@ import matplotlib.pyplot as plt
 VERBOSE = False
 
 DATA_DIR_PATH = '../data_3'
-
+PHOG_PATH = '../phog'
 phog = PHogFeatures()
 patchmatch = CLPatchMatch()
 # sift = cv2.SIFT()
@@ -33,10 +34,14 @@ class Image(object):
         return rgbData
 
     def load_phog(self, dirPath, imageId):
+        if os.path.exists(self.phogPath):
+            return np.load(self.phogPath)
         phogData = phog.get_features(self.rgbPath)
         startIndex = (len(phogData) - 680)/2
         endIndex = startIndex + 680
-        return phogData[startIndex:endIndex]
+        phogData = phogData[startIndex:endIndex]
+        np.save(self.phogPath, phogData)
+        return phogData
 
     def load_sift(self, dirPath, imageId):
         # img = cv2.imread(self.rgbPath)
@@ -58,6 +63,7 @@ class Image(object):
         self.rgbPath = os.path.abspath(os.path.join(dirPath, imageId + '-color.png'))
         # self.depthPath = os.path.abspath(os.path.join(dirPath, imageId + '_depthcrop.png'))
         self.depthPath = os.path.abspath(os.path.join(dirPath, imageId + '-depth.png'))
+        self.phogPath = os.path.abspath(os.path.join(PHOG_PATH, imageId + '%s-%s-phog.npy' % self.targetSize))
         self.rgb = self.load_rgb(dirPath, imageId)
         self.phog = self.load_phog(dirPath, imageId)
 
@@ -140,7 +146,7 @@ def infer_depth_gradient(pixelRGB, pixelRow, pixelCol, kImages):
 
 def main(inputPath):
     inputRGB = misc.imread(inputPath, mode='RGB')
-    workingSize = (300, 400)
+    workingSize = (240, 320)
     inputRGB = misc.imresize(inputRGB, workingSize)
     # inputGray = cv2.cvtColor(inputRGB, cv2.COLOR_BGR2GRAY)
     # keypoints = dense.detect(inputGray)
@@ -149,7 +155,7 @@ def main(inputPath):
     # inputSift = pixelDescriptors
     inputId = get_image_id(os.path.basename(inputPath))
     trainingImages = load_training_images(inputId, inputRGB.shape[0:2], DATA_DIR_PATH)
-    kImages = retreive_k_training_images(inputPath, trainingImages, 3)
+    kImages = retreive_k_training_images(inputPath, trainingImages, 1)
     print [image.id for image in kImages]
     for image in kImages:
         image.process_as_k_image()
@@ -162,11 +168,26 @@ def main(inputPath):
     for row in range(len(inputRGB)):
         for col, pixel in enumerate(inputRGB[row]):
             inputDepthGradient[row][col] = infer_depth_gradient(pixel, row, col, kImages)
-    inputDepthGradient[:][:][0] = cv2.bilateralFilter(inputDepthGradient[:][:][0].astype(np.float32),5,75,75)
-    inputDepthGradient[:][:][1] = cv2.bilateralFilter(inputDepthGradient[:][:][1].astype(np.float32),5,75,75)
+    # inputDepthGradient[:,:,0] = cv2.bilateralFilter(inputDepthGradient[:,:,0].astype(np.float32),5,25,25)
+    # inputDepthGradient[:,:,1] = cv2.bilateralFilter(inputDepthGradient[:,:,1].astype(np.float32),5,25,25)
     inputDepthGradient = np.dstack([inputDepthGradient, np.zeros(workingSize)])
     plt.figure()
     plt.imshow(inputDepthGradient)
+    plt.show()
+    # inputDepthX = poisson.fft_poisson(inputDepthGradient[:,:,0], 1.0/workingSize[0])
+    # plt.figure()
+    # plt.imshow(inputDepthX, cmap='gray')
+    # plt.show()
+    # inputDepthY = poisson.fft_poisson(inputDepthGradient[:][:][1], 1.0/workingSize[0])
+    # plt.figure()
+    # plt.imshow(inputDepthY, cmap='gray')
+    # plt.show()
+    # inputDepth = (inputDepthX + inputDepthY)/2.0
+    inputDepth = np.zeros(workingSize) + 180
+    inputDepth = fourierSolve(inputDepth, inputDepthGradient[:,:,0], inputDepthGradient[:,:,1])
+    # inputDepth = cv2.bilateralFilter(inputDepth.astype(np.float32),3,75,75)
+    plt.figure()
+    plt.imshow(inputDepth, cmap='gray')
     plt.show()
 
 if __name__ == '__main__':

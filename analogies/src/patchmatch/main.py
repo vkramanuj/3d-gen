@@ -158,7 +158,7 @@ class CLPatchMatch:
         pylab.show()
 
 
-    def match(self,files,patchSize=(3,3),iterations=30,Demo=False):
+    def match(self,files,patchSize=(5,5),iterations=30,Demo=False):
         '''
         run the patchMatch algorithm on the images, returning nff array
         '''
